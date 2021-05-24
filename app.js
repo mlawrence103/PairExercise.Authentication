@@ -5,18 +5,12 @@ const {
   models: { User },
 } = require('./db');
 const path = require('path');
-const jwt = require('jsonwebtoken');
-const SECRET = process.env.JWT;
 
-async function requireToken(req, res, next){
+async function requireToken(req, res, next) {
   try {
     const token = req.headers.authorization;
-    console.log('token--->', token)
-      const userInfo = await jwt.verify(token, SECRET);
-      console.log('userInfo--->', userInfo);
-      req.user = await User.byToken(userInfo.userId);
-      //console.log(req.user);
-      next()
+    req.user = await User.byToken(token);
+    next();
   } catch (error) {
     next(error);
   }
@@ -34,30 +28,25 @@ app.post('/api/auth', async (req, res, next) => {
 
 app.get('/api/auth', requireToken, async (req, res, next) => {
   try {
-    requireToken(req, res, next);
-    console.log('inside get route---->', req.user)
-    res.send(req.user);
+    res.send(req.user.dataValues);
   } catch (ex) {
     next(ex);
   }
 });
 
-app.get('/api/users/:id/notes', async (req, res, next) => {
+app.get('/api/users/:id/notes', requireToken, async (req, res, next) => {
   try {
-    //const token = req.headers.authorization;
-    //const userInfo = await jwt.verify(token, SECRET);
-    requireToken(req, res, next)
     const user = await User.findByPk(req.params.id);
-    if(user.id === req.user.dataValues.id){
-      const notes = await user.getNotes()
+    if (user.id === req.user.dataValues.id) {
+      const notes = await user.getNotes();
       res.send(notes);
-    } else{
+    } else {
       res.status(401).send('something went wrong');
     }
   } catch (error) {
     next(error);
   }
-})
+});
 
 app.use((err, req, res, next) => {
   console.log(err);

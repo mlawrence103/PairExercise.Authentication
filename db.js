@@ -40,8 +40,9 @@ User.beforeCreate(async (user) => {
 
 User.byToken = async (token) => {
   try {
-    const user = await User.findByPk(token);
-    if (user) {
+    const userInfo = await jwt.verify(token, SECRET);
+    if (userInfo) {
+      const user = await User.findByPk(userInfo.userId);
       return user;
     }
     const error = Error('bad credentials');
