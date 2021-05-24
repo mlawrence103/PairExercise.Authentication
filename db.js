@@ -20,14 +20,21 @@ const User = conn.define('user', {
   password: STRING,
 });
 
+const Note = conn.define('note', {
+  text: STRING,
+});
+
+User.hasMany(Note);
+Note.belongsTo(User);
+
 async function hashPassword(password) {
   const SALT_COUNT = 1;
   const hashedPwd = await bcrypt.hash(password, SALT_COUNT);
   return hashedPwd;
 }
 
-User.beforeCreate((user) => {
-  const hashedPwd = hashPassword(user.password);
+User.beforeCreate(async (user) => {
+  const hashedPwd = await hashPassword(user.password);
   user.password = hashedPwd;
 });
 
@@ -48,22 +55,14 @@ User.byToken = async (token) => {
 };
 
 User.authenticate = async ({ username, password }) => {
-  // const isValid = await bcrypt.compare(password, this.password);
-  console.log('this: ', this);
   console.log('password: ', password);
-  const hashedPwd = hashPassword(password);
-  const isValid = await bcrypt.compare(password, hashedPwd);
-  console.log('isValid: ', isValid);
-  // if (isValid) {
   const user = await User.findOne({
     where: {
       username,
-      password,
     },
   });
   console.log('user.password: ', user.password);
-  // }
-  if (user) {
+  if (await bcrypt.compare(password, user.password)) {
     return await jwt.sign({ userId: user.id }, SECRET);
   }
   const error = Error('bad credentials');
@@ -78,14 +77,33 @@ const syncAndSeed = async () => {
     { username: 'moe', password: 'moe_pw' },
     { username: 'larry', password: 'larry_pw' },
   ];
+  const notes = [
+    { text: 'hello' },
+    { text: 'California' },
+    { text: 'Coding is cool' },
+    { text: 'Meche for life' },
+  ];
+  const [note1, note2, note3, note4] = await Promise.all(
+    notes.map((note) => Note.create(note))
+  );
   const [lucy, moe, larry] = await Promise.all(
     credentials.map((credential) => User.create(credential))
   );
+  await note1.setUser(lucy);
+  await note2.setUser(moe);
+  await note3.setUser(moe);
+  await note4.setUser(larry);
   return {
     users: {
       lucy,
       moe,
       larry,
+    },
+    notes: {
+      note1,
+      note2,
+      note3,
+      note4,
     },
   };
 };
